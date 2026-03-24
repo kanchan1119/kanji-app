@@ -23,12 +23,14 @@ def main():
     st.sidebar.title("🛠 設定")
     mode = st.sidebar.radio("モード選択", ["番号ごとに10問", "ランダムに10問"])
     
-    # 開始位置の選択
     page = 0
     if mode == "番号ごとに10問":
         max_page = (len(all_data) - 1) // 10
         page = st.sidebar.number_input(f"開始位置 (0〜{max_page})", 0, max_page, 0, step=1)
         st.sidebar.info(f"【{page*10 + 1}問目】からスタートします")
+
+    # ★ 出題順の選択を追加
+    order = st.sidebar.radio("出題順", ["そのまま", "ランダム（10問内）"])
 
     # 「クイズを開始する」ボタン
     if st.sidebar.button("✨ クイズを開始・リセット"):
@@ -37,20 +39,26 @@ def main():
         st.session_state.score = 0
         st.session_state.answered = False
         
+        # 問題セットの作成
         if mode == "番号ごとに10問":
             start_idx = page * 10
-            st.session_state.quiz_set = all_data[start_idx : start_idx + 10]
+            selected_questions = all_data[start_idx : start_idx + 10]
+            # 「ランダム」が選ばれていたら、選んだ10問をシャッフルする
+            if order == "ランダム（10問内）":
+                random.shuffle(selected_questions)
+            st.session_state.quiz_set = selected_questions
         else:
+            # 全体からランダムに10問
             st.session_state.quiz_set = random.sample(all_data, min(10, len(all_data)))
+            
         st.rerun()
 
     # --- メイン画面 ---
     st.title("📖 小5漢字クイズ")
 
-    # クイズ開始前、またはデータがない状態
     if "quiz_started" not in st.session_state or not st.session_state.quiz_started:
         st.write("### 準備ができたら、左の「クイズを開始」ボタンを押してね！")
-        st.write(f"現在は **「{mode}」** が選ばれています。")
+        st.write(f"現在は **「{mode}」** の **「{order}」** 順が選ばれています。")
         return
 
     # クイズ実行中
@@ -89,7 +97,7 @@ def main():
         st.balloons()
         st.header("🎉 クリア！")
         st.metric("スコア", f"{st.session_state.score} / {len(st.session_state.quiz_set)}")
-        st.write("別の番号に挑戦するなら、左の設定を変えてからもう一度ボタンを押してね。")
+        st.write("別の番号や順序に挑戦するなら、左の設定を変えてからもう一度ボタンを押してね。")
 
 if __name__ == "__main__":
     main()
