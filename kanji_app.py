@@ -7,89 +7,89 @@ def load_data():
     try:
         with open('quiz_data.json', 'r', encoding='utf-8') as f:
             return json.load(f)
-    except FileNotFoundError:
-        st.error("quiz_data.json が見つかりません。同じフォルダに置いてください。")
+    except Exception as e:
+        st.error(f"データの読み込みに失敗しました: {e}")
         return []
 
 def main():
     st.set_page_config(page_title="小5漢字マスター", page_icon="✏️")
     
-    # データのロード
     all_data = load_data()
     if not all_data:
+        st.warning("quiz_data.json を確認してください。")
         return
 
-    # サイドバーでモード選択
-    st.sidebar.title("メニュー")
-    mode = st.sidebar.radio("モード選択", ["はじめから10問ずつ", "ランダムに10問"])
+    # サイドバー：設定エリア
+    st.sidebar.title("🛠 設定")
+    mode = st.sidebar.radio("モード選択", ["番号ごとに10問", "ランダムに10問"])
+    
+    # 開始位置の選択
+    page = 0
+    if mode == "番号ごとに10問":
+        max_page = (len(all_data) - 1) // 10
+        page = st.sidebar.number_input(f"開始位置 (0〜{max_page})", 0, max_page, 0, step=1)
+        st.sidebar.info(f"【{page*10 + 1}問目】からスタートします")
 
-    # セッション状態のリセット管理（モードが変わったらリセット）
-    if "current_mode" not in st.session_state or st.session_state.current_mode != mode:
-        st.session_state.current_mode = mode
+    # 「クイズを開始する」ボタン
+    if st.sidebar.button("✨ クイズを開始・リセット"):
+        st.session_state.quiz_started = True
         st.session_state.idx = 0
         st.session_state.score = 0
         st.session_state.answered = False
-        st.session_state.is_correct = False
         
-        if mode == "はじめから10問ずつ":
-            # ページ選択（0-9問目、10-19問目...）
-            max_page = len(all_data) // 10
-            page = st.sidebar.number_input(f"開始位置（0〜{max_page}）", 0, max_page, 0, step=1)
+        if mode == "番号ごとに10問":
             start_idx = page * 10
             st.session_state.quiz_set = all_data[start_idx : start_idx + 10]
         else:
-            # ランダムに10問抽出
             st.session_state.quiz_set = random.sample(all_data, min(10, len(all_data)))
+        st.rerun()
 
-    # クイズ画面の構築
-    st.title(f"📖 小5漢字：{mode}")
-    
-    # 全10問終わったかチェック
+    # --- メイン画面 ---
+    st.title("📖 小5漢字クイズ")
+
+    # クイズ開始前、またはデータがない状態
+    if "quiz_started" not in st.session_state or not st.session_state.quiz_started:
+        st.write("### 準備ができたら、左の「クイズを開始」ボタンを押してね！")
+        st.write(f"現在は **「{mode}」** が選ばれています。")
+        return
+
+    # クイズ実行中
     if st.session_state.idx < len(st.session_state.quiz_set):
         q = st.session_state.quiz_set[st.session_state.idx]
         
-        st.progress((st.session_state.idx) / 10)
-        st.subheader(f"第 {st.session_state.idx + 1} 問 / 10")
+        st.progress((st.session_state.idx) / len(st.session_state.quiz_set))
+        st.write(f"**第 {st.session_state.idx + 1} 問 / {len(st.session_state.quiz_set)}**")
         
-        # 問題文の表示
         st.info(f"### {q['q']}")
-        st.caption("正しいものを選んでください")
 
-        # 回答エリア
         if not st.session_state.answered:
             cols = st.columns(2)
-            # 選択肢を表示（JSONのoptsを使用）
             for i, opt in enumerate(q['opts']):
                 if cols[i % 2].button(opt, key=f"btn_{st.session_state.idx}_{i}", use_container_width=True):
                     st.session_state.answered = True
-                    if opt == q['a']:
-                        st.session_state.is_correct = True
-                        st.session_state.score += 1
-                    else:
-                        st.session_state.is_correct = False
+                    st.session_state.selected_opt = opt
                     st.rerun()
         else:
-            # 正解・不正解のフィードバック
-            if st.session_state.is_correct:
-                st.success(f"⭕️ 正解！【答え：{q['a']}】")
+            if st.session_state.selected_opt == q['a']:
+                st.success(f"⭕️ 正解！ 【答え：{q['a']}】")
+                if "incremented" not in st.session_state:
+                    st.session_state.score += 1
+                    st.session_state.incremented = True
             else:
                 st.error(f"❌ 残念... 【正解：{q['a']}】")
             
             if st.button("次の問題へ ➡️", type="primary"):
                 st.session_state.idx += 1
                 st.session_state.answered = False
+                if "incremented" in st.session_state:
+                    del st.session_state.incremented
                 st.rerun()
-
     else:
-        # 結果表示
+        # 結果画面
         st.balloons()
-        st.header("🎉 お疲れさまでした！")
-        st.metric("スコア", f"{st.session_state.score} / 10 点")
-        
-        if st.button("もう一度やる"):
-            # セッションをクリアして最初に戻る
-            del st.session_state.current_mode
-            st.rerun()
+        st.header("🎉 クリア！")
+        st.metric("スコア", f"{st.session_state.score} / {len(st.session_state.quiz_set)}")
+        st.write("別の番号に挑戦するなら、左の設定を変えてからもう一度ボタンを押してね。")
 
 if __name__ == "__main__":
     main()
