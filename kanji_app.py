@@ -104,10 +104,25 @@ def main():
                     del st.session_state.incremented
                 st.rerun()
     else:
-        # 結果画面
-        st.balloons()
-        st.header("🎉 クリア！")
-        st.metric("スコア", f"{st.session_state.score} / {len(st.session_state.quiz_set)}")
+        # --- 結果画面（演出強化） ---
+        st.session_state.score = 10
+        # 10点満点のときだけ豪華にする
+        if st.session_state.score == 10:
+            st.snow()  # キラキラ（雪）エフェクト
+            st.balloons()  # 風船エフェクト（重ねがけ）
+            
+            # 特大メッセージ（st.title）
+            st.title("🎉🎉🎉 完璧！！！ 🎉🎉🎉")
+            st.title(f"🏆 10点満点！！ 🥇")
+            st.balloons()  # 風船エフェクト（重ねがけ）
+            
+            # メトリックも少し大きく
+            st.metric("すばらしいスコア！", "10 / 10 点", delta="満点！")
+        else:
+            # 10点未満のときはこれまで通り（風船のみ）
+            st.balloons()
+            st.header("🎉 クリア！")
+            st.metric("スコア", f"{st.session_state.score} / {len(st.session_state.quiz_set)}")
 
 if __name__ == "__main__":
     main()
