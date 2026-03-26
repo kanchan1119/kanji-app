@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import random
 
-# データの読み込み
+# データの読み込み関数
 def load_data():
     try:
         with open('quiz_data.json', 'r', encoding='utf-8') as f:
@@ -19,7 +19,7 @@ def main():
         st.warning("quiz_data.json を確認してください。")
         return
 
-    # サイドバー：設定エリア
+    # --- サイドバー：設定エリア ---
     st.sidebar.title("🛠 設定")
     mode = st.sidebar.radio("モード選択", ["番号ごとに10問", "ランダムに10問"])
     
@@ -44,29 +44,29 @@ def main():
         if mode == "番号ごとに10問":
             start_idx = page * 10
             selected_questions = all_data[start_idx : start_idx + 10]
-            # 出題順をシャッフル（選んだ10問自体の順番を変える）
+            # 出題順をシャッフル
             if order == "ランダム（10問内）":
                 random.shuffle(selected_questions)
         else:
             # 全体からランダムに10問
             selected_questions = random.sample(all_data, min(10, len(all_data)))
 
-        # --- 重要：選択肢の順番をシャッフルする処理を追加 ---
-        # selected_questionsはJSONデータのコピーなので、ここを書き換えても元のファイルは変わりません
+        # --- 選択肢の順番をランダム化 ---
+        # 各問題ごとに選択肢の並び順をシャッフルします
         for q in selected_questions:
-            # q['opts'] リストの中身（選択肢の並び）をバラバラにする
+            # optsのコピーを作ってシャッフル（元データ破壊防止）
             random.shuffle(q['opts'])
         
-        # シャッフルした問題セットをセッションに保存
         st.session_state.quiz_set = selected_questions
-            
         st.rerun()
 
     # --- メイン画面 ---
     st.title("📖 小5漢字クイズ")
 
+    # クイズ開始前
     if "quiz_started" not in st.session_state or not st.session_state.quiz_started:
         st.write("### 準備ができたら、左の「クイズを開始」ボタンを押してね！")
+        st.write(f"現在は **「{mode}」** の **「{order}」** 順が選ばれています。")
         return
 
     # クイズ実行中
@@ -78,17 +78,16 @@ def main():
         
         st.info(f"### {q['q']}")
 
-        # 選択肢ボタンの配置
+        # 選択肢ボタン
         if not st.session_state.answered:
             cols = st.columns(2)
-            # すでにシャッフルされたq['opts']を順番に表示するだけ
             for i, opt in enumerate(q['opts']):
                 if cols[i % 2].button(opt, key=f"btn_{st.session_state.idx}_{i}", use_container_width=True):
                     st.session_state.answered = True
                     st.session_state.selected_opt = opt
                     st.rerun()
         else:
-            # 回答後のフィードバック（正解判定は変わらずq['a']と比較）
+            # 回答後の判定
             if st.session_state.selected_opt == q['a']:
                 st.success(f"⭕️ 正解！ 【答え：{q['a']}】")
                 if "incremented" not in st.session_state:
@@ -104,25 +103,33 @@ def main():
                     del st.session_state.incremented
                 st.rerun()
     else:
-        # --- 結果画面（演出強化） ---
-        st.session_state.score = 10
-        # 10点満点のときだけ豪華にする
-        if st.session_state.score == 10:
-            st.snow()  # キラキラ（雪）エフェクト
-            st.balloons()  # 風船エフェクト（重ねがけ）
-            
-            # 特大メッセージ（st.title）
-            st.title("🎉🎉🎉 完璧！！！ 🎉🎉🎉")
+        # --- 結果画面（豪華演出） ---
+        current_score = st.session_state.score
+        
+        if current_score == 10:
+            # 10点満点：特大の祝福
+            st.snow()
+            st.balloons()
+            st.title("🎊🎊🎊 完璧！！！ 🎊🎊🎊")
             st.title(f"🏆 10点満点！！ 🥇")
-            st.balloons()  # 風船エフェクト（重ねがけ）
-            
-            # メトリックも少し大きく
-            st.metric("すばらしいスコア！", "10 / 10 点", delta="満点！")
+            st.metric("最高の結果です！", "10 / 10 点", delta="満点達成！")
+            st.write("### あなたは漢字マスターです！この調子でどんどん進もう！")
         else:
-            # 10点未満のときはこれまで通り（風船のみ）
+            # 10点未満：通常の祝福
             st.balloons()
             st.header("🎉 クリア！")
-            st.metric("スコア", f"{st.session_state.score} / {len(st.session_state.quiz_set)}")
+            st.metric("今回のスコア", f"{current_score} / 10 点")
+            
+            if current_score >= 8:
+                st.write("惜しい！あと少しで満点だね。")
+            elif current_score >= 5:
+                st.write("半分以上正解！次はもっと上を目指そう。")
+            else:
+                st.write("まずは10問中5問正解を目標にがんばろう！")
+
+        if st.button("もう一度挑戦する"):
+            del st.session_state.quiz_started
+            st.rerun()
 
 if __name__ == "__main__":
     main()
